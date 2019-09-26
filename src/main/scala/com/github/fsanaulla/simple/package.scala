@@ -1,15 +1,19 @@
+package com.github.fsanaulla
+
 import java.net.HttpCookie
+
+import com.github.fsanaulla.simple.domain.{BaseSession, Compress, RequestAuth}
 
 import scala.collection.mutable
 
-package object requests extends _root_.requests.BaseSession {
+package object simple extends BaseSession {
   def cookies = mutable.Map.empty[String, HttpCookie]
 
-  val headers = BaseSession.defaultHeaders
+  val headers: Map[String, String] = BaseSession.defaultHeaders
 
-  def auth = RequestAuth.Empty
+  def auth: RequestAuth.Empty.type = RequestAuth.Empty
 
-  def proxy = null
+  def proxy: Null = null
 
   def maxRedirects: Int = 5
 

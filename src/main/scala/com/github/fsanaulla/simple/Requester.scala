@@ -1,56 +1,25 @@
-package requests
+package com.github.fsanaulla.simple
 
 import java.io.ByteArrayOutputStream
 import java.net.{HttpCookie, HttpURLConnection, InetSocketAddress}
 import java.util.zip.{GZIPInputStream, InflaterInputStream}
 
+import com.github.fsanaulla.simple.domain._
 import javax.net.ssl._
 
-import collection.JavaConverters._
-import scala.collection.mutable
+import scala.collection.JavaConverters._
 
-trait BaseSession{
-  def headers: Map[String, String]
-
-  def cookies: mutable.Map[String, HttpCookie]
-  def readTimeout: Int
-  def connectTimeout: Int
-  def auth: RequestAuth
-  def proxy: (String, Int)
-  def maxRedirects: Int
-  def persistCookies: Boolean
-  def verifySslCerts: Boolean
-  def autoDecompress: Boolean
-  def compress: Compress
-  lazy val get = Requester("GET", this)
-  lazy val post = Requester("POST", this)
-  lazy val put = Requester("PUT", this)
-  lazy val delete = Requester("DELETE", this)
-  lazy val head = Requester("HEAD", this)
-  lazy val options = Requester("OPTIONS", this)
-  // unofficial
-  lazy val patch = Requester("PATCH", this)
-}
-
-object BaseSession{
-  val defaultHeaders = Map(
-    "User-Agent" -> "requests-scala",
-    "Accept-Encoding" -> "gzip, deflate",
-    "Connection" -> "keep-alive",
-    "Accept" -> "*/*"
-  )
-}
-object Requester{
-  val officialHttpMethods = Set("GET", "POST", "HEAD", "OPTIONS", "PUT", "DELETE", "TRACE")
-  private lazy val methodField: java.lang.reflect.Field = {
+object Requester {
+  val officialHttpMethods: Set[String] =
+    Set("GET", "POST", "HEAD", "OPTIONS", "PUT", "DELETE", "TRACE")
+  private lazy val methodField = {
     val m = classOf[HttpURLConnection].getDeclaredField("method")
     m.setAccessible(true)
     m
   }
 }
-case class Requester(verb: String,
-                     sess: BaseSession){
 
+final case class Requester(verb: String, sess: BaseSession) {
 
   /**
     * Makes a single HTTP request, and returns a [[Response]] object. Requires
@@ -93,15 +62,29 @@ case class Requester(verb: String,
     val out = new ByteArrayOutputStream()
     var streamHeaders: StreamHeaders = null
 
-    val totalSize = data match{
-      case s: RequestBlob.SizedBlob => s.length
+    val totalSize = data match {
+      case s: RequestBlob.SizedBlob     => s.length
       case RequestBlob.EmptyRequestBlob => 0
-      case _ => -1
+      case _                            => -1
     }
     stream(
-      url, auth, params, data.headers, headers, readTimeout,
-      connectTimeout, proxy, cookies, cookieValues, maxRedirects,
-      verifySslCerts, autoDecompress, compress, keepAlive, totalSize, data.inMemory
+      url,
+      auth,
+      params,
+      data.headers,
+      headers,
+      readTimeout,
+      connectTimeout,
+      proxy,
+      cookies,
+      cookieValues,
+      maxRedirects,
+      verifySslCerts,
+      autoDecompress,
+      compress,
+      keepAlive,
+      totalSize,
+      data.inMemory
     )(
       if (totalSize == 0) null
       else upload => data.write(upload),
@@ -159,10 +142,11 @@ case class Requester(verb: String,
              keepAlive: Boolean = true,
              totalSize: Long = -1,
              inMemory: Boolean = true,
-             redirectedFrom: Option[Response] = None)
-            (onUpload: java.io.OutputStream => Unit = null,
-             onHeadersReceived: StreamHeaders => Unit = null,
-             onDownload: java.io.InputStream => Unit = null): Unit = {
+             redirectedFrom: Option[Response] = None)(
+    onUpload: java.io.OutputStream => Unit = null,
+    onHeadersReceived: StreamHeaders => Unit = null,
+    onDownload: java.io.InputStream => Unit = null
+  ): Unit = {
 
     val url0 = new java.net.URL(url)
 
@@ -181,52 +165,51 @@ case class Requester(verb: String,
         else {
           val (ip, port) = proxy
           val p = new java.net.Proxy(
-            java.net.Proxy.Type.HTTP, new InetSocketAddress(ip, port)
+            java.net.Proxy.Type.HTTP,
+            new InetSocketAddress(ip, port)
           )
           url1.openConnection(p)
         }
 
-      connection = conn match{
+      connection = conn match {
         case c: HttpsURLConnection =>
           if (!verifySslCerts) {
             c.setSSLSocketFactory(Util.noVerifySocketFactory)
-            c.setHostnameVerifier(
-              new javax.net.ssl.HostnameVerifier {
-                override def verify(s: String, sslSession: SSLSession) = true
-              }
-            )
+            c.setHostnameVerifier(new javax.net.ssl.HostnameVerifier {
+              override def verify(s: String, sslSession: SSLSession) = true
+            })
           }
           c
         case c: HttpURLConnection => c
       }
 
-
-
       connection.setInstanceFollowRedirects(false)
       val upperCaseVerb = verb.toUpperCase
-      if (Requester.officialHttpMethods.contains(upperCaseVerb)) {
+      if (Requester.officialHttpMethods.contains(upperCaseVerb))
         connection.setRequestMethod(upperCaseVerb)
-      } else {
+      else {
         // HttpURLConnection enforces a list of official http METHODs, but not everyone abides by the spec
         // this hack allows us set an unofficial http method
         connection match {
           case cs: HttpsURLConnection =>
-            cs.getClass.getDeclaredFields.find(_.getName == "delegate").foreach{ del =>
-              del.setAccessible(true)
-              Requester.methodField.set(del.get(cs), upperCaseVerb)
-            }
+            cs.getClass.getDeclaredFields
+              .find(_.getName == "delegate")
+              .foreach { del =>
+                del.setAccessible(true)
+                Requester.methodField.set(del.get(cs), upperCaseVerb)
+              }
           case c =>
             Requester.methodField.set(c, upperCaseVerb)
         }
       }
 
-      for((k, v) <- blobHeaders) connection.setRequestProperty(k, v)
+      for ((k, v) <- blobHeaders) connection.setRequestProperty(k, v)
 
-      for((k, v) <- sess.headers) connection.setRequestProperty(k, v)
+      for ((k, v) <- sess.headers) connection.setRequestProperty(k, v)
 
-      for((k, v) <- headers) connection.setRequestProperty(k, v)
+      for ((k, v) <- headers) connection.setRequestProperty(k, v)
 
-      for((k, v) <- compress.headers) connection.setRequestProperty(k, v)
+      for ((k, v) <- compress.headers) connection.setRequestProperty(k, v)
 
       connection.setReadTimeout(readTimeout)
       auth.header.foreach(connection.setRequestProperty("Authorization", _))
@@ -234,7 +217,7 @@ case class Requester(verb: String,
       connection.setUseCaches(false)
       connection.setDoOutput(true)
 
-      val sessionCookieValues = for{
+      val sessionCookieValues = for {
         c <- (sess.cookies ++ cookies).valuesIterator
         if !c.hasExpired
         if c.getDomain == null || c.getDomain == url1.getHost
@@ -242,54 +225,55 @@ case class Requester(verb: String,
       } yield (c.getName, c.getValue)
 
       val allCookies = sessionCookieValues ++ cookieValues
-      if (allCookies.nonEmpty){
+      if (allCookies.nonEmpty)
         connection.setRequestProperty(
           "Cookie",
           allCookies
-            .map{case (k, v) => k + "=" + v}
+            .map { case (k, v) => k + "=" + v }
             .mkString("; ")
         )
-      }
 
-      if (onUpload != null) {
-        if (inMemory && compress != Compress.None){
-          // For in-memory data inputs we want to compress, we buffer the
-          // compressed output in-memory as well before uploading it. This lets
-          // us avoid using chunked transfer encoding, for data which we already
-          // had in memory and can probably pay the cost of buffering.
-          //
-          // For non-in-memory data inputs, we were already probably going to use
-          // chunked transfer encoding anyway, so we just use that and can skip
-          // the buffering.
-          //
-          // The only exception is known-size on-disk files, which uncompressed
-          // get uploaded via content-length upload but compressed used chunked
-          // transfer encoding. There isn't really any good way around this,
-          // short of pre-compressing the file on disk, if we assume some files
-          // are too big to fit in memory
-          val bytes = new ByteArrayOutputStream()
-          onUpload(compress.wrap(bytes))
-          val byteArray = bytes.toByteArray
-          connection.setFixedLengthStreamingMode(byteArray.length)
-          connection.getOutputStream.write(byteArray)
-        }else{
-          if (totalSize >= 0) connection.setFixedLengthStreamingMode(totalSize)
-          else if (totalSize < 0) connection.setChunkedStreamingMode(0)
+      if (onUpload != null) if (inMemory && compress != Compress.None) {
+        // For in-memory data inputs we want to compress, we buffer the
+        // compressed output in-memory as well before uploading it. This lets
+        // us avoid using chunked transfer encoding, for data which we already
+        // had in memory and can probably pay the cost of buffering.
+        //
+        // For non-in-memory data inputs, we were already probably going to use
+        // chunked transfer encoding anyway, so we just use that and can skip
+        // the buffering.
+        //
+        // The only exception is known-size on-disk files, which uncompressed
+        // get uploaded via content-length upload but compressed used chunked
+        // transfer encoding. There isn't really any good way around this,
+        // short of pre-compressing the file on disk, if we assume some files
+        // are too big to fit in memory
+        val bytes = new ByteArrayOutputStream()
+        onUpload(compress.wrap(bytes))
+        val byteArray = bytes.toByteArray
+        connection.setFixedLengthStreamingMode(byteArray.length)
+        connection.getOutputStream.write(byteArray)
+      } else {
+        if (totalSize >= 0) connection.setFixedLengthStreamingMode(totalSize)
+        else if (totalSize < 0) connection.setChunkedStreamingMode(0)
 
-          onUpload(compress.wrap(connection.getOutputStream))
-        }
-      }else if(verb.toUpperCase == "POST" || verb.toUpperCase == "PUT"){
-          require(totalSize <= 0, "totalSize should not be greater than zero if onUpload is null")
-          connection.setFixedLengthStreamingMode(0)
+        onUpload(compress.wrap(connection.getOutputStream))
+      } else if (verb.toUpperCase == "POST" || verb.toUpperCase == "PUT") {
+        require(
+          totalSize <= 0,
+          "totalSize should not be greater than zero if onUpload is null"
+        )
+        connection.setFixedLengthStreamingMode(0)
       }
 
       val (responseCode, responseMsg, headerFields) = try {(
-        connection.getResponseCode,
-        connection.getResponseMessage,
-        connection.getHeaderFields.asScala
-          .filter(_._1 != null)
-          .map{case (k, v) => (k.toLowerCase(), v.asScala.toSeq)}.toMap
-      )} catch{
+          connection.getResponseCode,
+          connection.getResponseMessage,
+          connection.getHeaderFields.asScala
+            .filter(_._1 != null)
+            .map { case (k, v) => (k.toLowerCase(), v.asScala.toSeq) }
+            .toMap
+        )} catch {
         case e: java.net.SocketTimeoutException =>
           throw new TimeoutException(url, readTimeout, connectTimeout)
         case e: java.net.UnknownHostException =>
@@ -298,9 +282,17 @@ case class Requester(verb: String,
           throw new InvalidCertException(url, e)
       }
 
-      val deGzip = autoDecompress && headerFields.get("content-encoding").toSeq.flatten.exists(_.contains("gzip"))
-      val deDeflate = autoDecompress && headerFields.get("content-encoding").toSeq.flatten.exists(_.contains("deflate"))
-      if (responseCode.toString.startsWith("3") && maxRedirects > 0){
+      val deGzip = autoDecompress && headerFields
+        .get("content-encoding")
+        .toSeq
+        .flatten
+        .exists(_.contains("gzip"))
+      val deDeflate = autoDecompress && headerFields
+        .get("content-encoding")
+        .toSeq
+        .flatten
+        .exists(_.contains("deflate"))
+      if (responseCode.toString.startsWith("3") && maxRedirects > 0) {
         val out = new ByteArrayOutputStream()
         Util.transferTo(connection.getInputStream, out)
         val bytes = out.toByteArray
@@ -313,24 +305,35 @@ case class Requester(verb: String,
           new ResponseBlob(bytes),
           redirectedFrom
         )
-        if (sess.persistCookies) {
+        if (sess.persistCookies)
           headerFields
             .get("set-cookie")
             .iterator
             .flatten
             .flatMap(HttpCookie.parse(_).asScala)
             .foreach(c => sess.cookies(c.getName) = c)
-        }
         val newUrl = current.headers("location").head
         stream(
-          new java.net.URL(url1, newUrl).toString, auth, params, blobHeaders,
-          headers, readTimeout, connectTimeout, proxy, cookies,
-          cookieValues, maxRedirects - 1, verifySslCerts,
-          autoDecompress, compress, keepAlive, totalSize, inMemory, Some(current)
-        )(
-          onUpload, onHeadersReceived, onDownload
-        )
-      }else{
+          new java.net.URL(url1, newUrl).toString,
+          auth,
+          params,
+          blobHeaders,
+          headers,
+          readTimeout,
+          connectTimeout,
+          proxy,
+          cookies,
+          cookieValues,
+          maxRedirects - 1,
+          verifySslCerts,
+          autoDecompress,
+          compress,
+          keepAlive,
+          totalSize,
+          inMemory,
+          Some(current)
+        )(onUpload, onHeadersReceived, onDownload)
+      } else {
 
         if (sess.persistCookies) {
           headerFields
@@ -341,31 +344,31 @@ case class Requester(verb: String,
             .foreach(c => sess.cookies(c.getName) = c)
         }
 
-        if (onHeadersReceived != null) {
-          onHeadersReceived(StreamHeaders(
-            url,
-            responseCode,
-            responseMsg,
-            headerFields,
-            redirectedFrom
-          ))
-        }
+        if (onHeadersReceived != null)
+          onHeadersReceived(
+            StreamHeaders(
+              url,
+              responseCode,
+              responseMsg,
+              headerFields,
+              redirectedFrom
+            )
+          )
 
         val stream =
-          if (connection.getResponseCode.toString.startsWith("2")) connection.getInputStream
+          if (connection.getResponseCode.toString.startsWith("2"))
+            connection.getInputStream
           else connection.getErrorStream
 
-        if (stream != null && onDownload != null){
+        if (stream != null && onDownload != null)
           try onDownload(
             if (deGzip) new GZIPInputStream(stream)
             else if (deDeflate) new InflaterInputStream(stream)
             else stream
-          ) finally if (!keepAlive) stream.close()
-        }
+          )
+          finally if (!keepAlive) stream.close()
       }
-    } finally if (!keepAlive && connection != null) {
-      connection.disconnect()
-    }
+    } finally if (!keepAlive && connection != null) connection.disconnect()
   }
 
   /**
@@ -392,26 +395,28 @@ case class Requester(verb: String,
   /**
     * Overload of [[Requester.stream]] that takes a [[Request]] object as configuration
     */
-  def stream(r: Request, totalSize: Long, inMemory: Boolean)
-            (onUpload: java.io.OutputStream => Unit,
-             onHeadersReceived: StreamHeaders => Unit,
-             onDownload: java.io.InputStream => Unit): Unit = stream(
-    r.url,
-    r.auth,
-    r.params,
-    Seq.empty[(String, String)],
-    r.headers,
-    r.readTimeout,
-    r.connectTimeout,
-    r.proxy,
-    r.cookies,
-    r.cookieValues,
-    r.maxRedirects,
-    r.verifySslCerts,
-    r.autoDecompress,
-    r.compress,
-    r.keepAlive,
-    totalSize,
-    inMemory
-  )(onUpload, onHeadersReceived, onDownload)
+  def stream(r: Request, totalSize: Long, inMemory: Boolean)(
+    onUpload: java.io.OutputStream => Unit,
+    onHeadersReceived: StreamHeaders => Unit,
+    onDownload: java.io.InputStream => Unit
+  ): Unit =
+    stream(
+      r.url,
+      r.auth,
+      r.params,
+      Seq.empty[(String, String)],
+      r.headers,
+      r.readTimeout,
+      r.connectTimeout,
+      r.proxy,
+      r.cookies,
+      r.cookieValues,
+      r.maxRedirects,
+      r.verifySslCerts,
+      r.autoDecompress,
+      r.compress,
+      r.keepAlive,
+      totalSize,
+      inMemory
+    )(onUpload, onHeadersReceived, onDownload)
 }

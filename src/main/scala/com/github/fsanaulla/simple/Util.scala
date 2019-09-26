@@ -1,4 +1,4 @@
-package requests
+package com.github.fsanaulla.simple
 
 import java.io.{InputStream, OutputStream}
 import java.net.URLEncoder
@@ -7,11 +7,14 @@ import java.security.cert.X509Certificate
 import javax.net.ssl.{SSLContext, TrustManager, X509TrustManager}
 
 object Util {
-  def transferTo(is: InputStream,
-                 os: OutputStream,
-                 bufferSize: Int = 8 * 1024) = {
+
+  def transferTo(
+      is: InputStream,
+      os: OutputStream,
+      bufferSize: Int = 8 * 1024
+    ) = {
     val buffer = new Array[Byte](bufferSize)
-    while ( {
+    while ({
       is.read(buffer) match {
         case -1 => false
         case n =>
@@ -22,17 +25,17 @@ object Util {
   }
 
   def urlEncode(x: Iterable[(String, String)]) = {
-    x.map{case (k, v) => URLEncoder.encode(k, "UTF-8") + "=" + URLEncoder.encode(v, "UTF-8")}
+    x.map { case (k, v) => URLEncoder.encode(k, "UTF-8") + "=" + URLEncoder.encode(v, "UTF-8") }
       .mkString("&")
   }
 
-  private[requests] val noVerifySocketFactory = {
+  private[simple] val noVerifySocketFactory = {
     val trustAllCerts = Array[TrustManager](new X509TrustManager() {
-      def getAcceptedIssuers() = new Array[X509Certificate](0)
+      def getAcceptedIssuers = new Array[X509Certificate](0)
 
-      def checkClientTrusted(chain: Array[X509Certificate], authType: String) = {}
+      def checkClientTrusted(chain: Array[X509Certificate], authType: String): Unit = {}
 
-      def checkServerTrusted(chain: Array[X509Certificate], authType: String) = {}
+      def checkServerTrusted(chain: Array[X509Certificate], authType: String): Unit = {}
     })
 
     // Install the all-trusting trust manager

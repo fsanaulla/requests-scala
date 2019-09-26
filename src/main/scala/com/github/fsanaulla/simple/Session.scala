@@ -1,5 +1,8 @@
-package requests
+package com.github.fsanaulla.simple
+
 import java.net.HttpCookie
+
+import com.github.fsanaulla.simple.domain.{BaseSession, Compress, RequestAuth}
 
 import scala.collection.mutable
 
@@ -20,19 +23,20 @@ import scala.collection.mutable
   *                     redirects for you
   * @param verifySslCerts Set this to false to ignore problems with SSL certificates
   */
-case class Session(headers: Map[String, String] = BaseSession.defaultHeaders,
-                   cookieValues: Map[String, String] = Map(),
-                   cookies: mutable.Map[String, HttpCookie] = mutable.LinkedHashMap.empty[String, HttpCookie],
-                   auth: RequestAuth = RequestAuth.Empty,
-                   proxy: (String, Int) = null,
-                   persistCookies: Boolean = true,
-                   maxRedirects: Int = 5,
-                   readTimeout: Int = 10 * 1000,
-                   connectTimeout: Int = 10 * 1000,
-                   verifySslCerts: Boolean = true,
-                   autoDecompress: Boolean = true,
-                   compress: Compress = Compress.None)
-  extends BaseSession{
+case class Session(
+    headers: Map[String, String] = BaseSession.defaultHeaders,
+    cookieValues: Map[String, String] = Map(),
+    cookies: mutable.Map[String, HttpCookie] = mutable.LinkedHashMap.empty[String, HttpCookie],
+    auth: RequestAuth = RequestAuth.Empty,
+    proxy: (String, Int) = null,
+    persistCookies: Boolean = true,
+    maxRedirects: Int = 5,
+    readTimeout: Int = 10 * 1000,
+    connectTimeout: Int = 10 * 1000,
+    verifySslCerts: Boolean = true,
+    autoDecompress: Boolean = true,
+    compress: Compress = Compress.None)
+  extends BaseSession {
 
-  for((k, v) <- cookieValues) cookies(k) = new HttpCookie(k, v)
+  for ((k, v) <- cookieValues) cookies(k) = new HttpCookie(k, v)
 }
